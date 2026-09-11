@@ -1,0 +1,72 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  JAK WŁĄCZYĆ (Wariant A — automatyczny deploy)
+#
+#  Bot CI nie ma uprawnienia `workflows`, więc nie mógł zapisać tego pliku
+#  bezpośrednio w `.github/workflows/`. Zrób to ręcznie — 30 sekund:
+#
+#  1. Na GitHubie: Add file → Create new file
+#  2. Jako nazwę wpisz:  .github/workflows/deploy.yml
+#  3. Wklej całą poniższą treść (bez tego komentarza) → Commit changes
+#  4. Settings → Pages → Source: "GitHub Actions"
+#
+#  Alternatywnie lokalnie:
+#     mkdir -p .github/workflows
+#     cp .github/deploy-pages.yml.example .github/workflows/deploy.yml
+#     git add .github/workflows/deploy.yml && git commit -m "Add Pages workflow" && git push
+#
+#  Nie chcesz Actions? Użyj Wariantu B (folder docs/) — patrz README.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Deploy VibeAnimations to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (single-file)
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
